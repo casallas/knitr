@@ -163,6 +163,45 @@ eng_stan = function(options) {
   engine_output(options, code, '')
 }
 
+## DBI
+## Compiles Stan model in the code chunk, creates a stanmodel object,
+## and assigns it to a variable with the name given in engine.opts$x.
+eng_DBI = function(options) {
+  code = paste(options$code, collapse = '\n')
+  opts = options$engine.opts
+  if (options$eval){
+    conn = opts$conn
+    if (!inherits(dbDriver, "DBIConnection")){
+      # Create the connection if not already connected...
+      dbDriver = opts$dbDriver
+      drv = NULL
+      if (is.character(dbDriver)){
+        drv = do.call(getFromNamespace('dbDriver', 'DBI'), list(drvName = dbDriver))
+      } else if (inherits(dbDriver, "DBIDriver")){
+          drv = dbDriver
+      } else {
+        stop("engine$dbDriver must be either a character string, ",
+        "or an object an object that inherits from ‘DBIDriver.")
+      }
+      conn = do.call(getFromNamespace('dbConnect', 'DBI'), append(list(drvName = dbDriver), c(dbArgs)))
+      x = opts$x
+      if (!is.character(x) || length(x) != 1L) stop(
+        "engine.opts$x must be a character string; ",
+        "provide a name for the returned `stanmodel` object."
+      )
+      opts$x = NULL
+      message("Creating a DBI result object ", x)
+      assign(
+             x,
+             do.call(getFromNamespace('stan_model', 'rstan'),
+                     c(list(model_code = code), opts)),
+             envir = knit_global()
+      )
+    }
+  }
+  engine_output(options, code, '')
+}
+
 ## convert tikz string to PDF
 eng_tikz = function(options) {
   if (!options$eval) return(engine_output(options, options$code, ''))
